@@ -1,5 +1,8 @@
 import socket
 from packet import *
+import time
+
+RTT = 0.1
 
 class Server:
     # create UDP server socket and bind port
@@ -25,7 +28,7 @@ class Server:
             resPacket.ack = self.ackInc(packet[2])
             resPacket.dport = packet[1]
 
-
+            time.sleep(RTT)
             self.serverSocket.sendto(resPacket.pack(), address)
 
 

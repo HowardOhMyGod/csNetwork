@@ -1,5 +1,9 @@
 import socket
 from packet import *
+import time
+
+BUFFER_SIZE = 10240
+RTT = 0.1
 
 class Client:
     # create UDP client socket and bind port
@@ -15,12 +19,16 @@ class Client:
     # send packet to server
     def send(self):
         pkt = self.makePkt()
+        self.stime = time.time()
+        time.sleep(RTT)
         self.clientSocket.sendto(pkt, ('127.0.0.1', self.dport))
 
     # recieve packet from server
     def recv(self):
-        packet, server = self.clientSocket.recvfrom(1024)
+        packet, server = self.clientSocket.recvfrom(BUFFER_SIZE)
         print Packet().unpack(packet)
+        self.etime = time.time()
+        print 'RTT : ', self.etime - self.stime
         self.clientSocket.close()
 
 if __name__ == "__main__":
