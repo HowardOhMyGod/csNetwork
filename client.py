@@ -26,10 +26,14 @@ class Client:
     # recieve packet from server
     def recv(self):
         packet, server = self.clientSocket.recvfrom(BUFFER_SIZE)
-        print Packet().unpack(packet)
-        self.etime = time.time()
-        print 'RTT : ', self.etime - self.stime
-        self.clientSocket.close()
+
+        if chksum(packet) == 0:
+            print Packet().unpack(packet)
+            self.etime = time.time()
+            print 'RTT : ', self.etime - self.stime
+            self.clientSocket.close()
+        else:
+            print chksum(packet)
 
 if __name__ == "__main__":
     client = Client(12000)
