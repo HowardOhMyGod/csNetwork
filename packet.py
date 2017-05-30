@@ -1,21 +1,30 @@
 import struct
 
+
 class Packet:
     def __init__(self, sport = 0, dport = 0):
+        # TCP packet
         self.sport = sport
         self.dport = dport
         self.seq = 0
         self.ack = 0
         self.chksum = 0
 
+        # IP packet
+        self.dst = 0
+        self.src = 0
 
+    # pack tcp and ip packet
     def pack(self):
-        packet = struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, self.chksum)
-        checksum = chksum(packet)
+        tcp_packet = struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, self.chksum)
+        ip_pkt = struct.pack('!4s4s', self.src, self.dst)
+        
+        checksum = chksum(tcp_packet + ip_pkt)
 
-        return struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, checksum)
+        return struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, checksum) + ip_pkt
+
     def unpack(self, packet):
-        return struct.unpack('!2H2Ih', packet)
+        return struct.unpack('!2H2Ih4s4s', packet)
 
 
 def chksum(pkt):

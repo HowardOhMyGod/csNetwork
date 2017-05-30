@@ -7,17 +7,24 @@ RTT = 0.1
 
 class Client:
     # create UDP client socket and bind port
-    def __init__(self, sport, dport):
+    def __init__(self, src, dst, sport, dport):
         self.clientSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.clientSocket.bind(('127.0.0.1', sport))
+        self.clientSocket.bind((src, sport))
 
         print 'Client Start at port: ', sport
         self.dport = dport
         self.sport = sport
 
+        self.dst = dst
+        self.src = src
+
     # make packet
     def makePkt(self):
-        return Packet(self.sport, self.dport).pack()
+        pkt = Packet(self.sport, self.dport)
+        pkt.dst = socket.inet_pton(socket.AF_INET, self.dst)
+        pkt.src = socket.inet_pton(socket.AF_INET, self.src)
+
+        return pkt.pack()
 
     # send packet to server
     def send(self):
@@ -26,7 +33,7 @@ class Client:
         time.sleep(RTT)
 
         # send and recieve packet from server
-        self.clientSocket.sendto(pkt, ('127.0.0.1', self.dport))
+        self.clientSocket.sendto(pkt, (self.dst, self.dport))
         self.recv()
 
     # recieve packet from server
@@ -40,5 +47,5 @@ class Client:
             print chksum(packet)
 
 if __name__ == "__main__":
-    client = Client(2000, 12000)
+    client = Client('127.0.0.3', '127.0.0.1', 2000, 12000)
     client.send()
