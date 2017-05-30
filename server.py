@@ -21,7 +21,7 @@ class Server:
 
         while True:
             packet, address = self.serverSocket.recvfrom(1024)
-
+            print 'Recievied from client : ', address
             # correct checksum
             if chksum(packet) == 0:
                 packet = Packet().unpack(packet)
@@ -30,6 +30,7 @@ class Server:
                 resPacket = Packet()
                 resPacket.ack = self.ackInc(packet[2])
                 resPacket.dport = packet[1]
+                resPacket.sport = address[1]
 
                 time.sleep(RTT)
                 self.serverSocket.sendto(resPacket.pack(), address)

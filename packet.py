@@ -8,10 +8,6 @@ class Packet:
         self.ack = 0
         self.chksum = 0
 
-        #  pseudo-header for checksum computation
-        # self.src = 0
-        # self.dst = 127.0.0.1
-
 
     def pack(self):
         packet = struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, self.chksum)
