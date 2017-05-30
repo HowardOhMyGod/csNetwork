@@ -30,7 +30,6 @@ class Client:
         if chksum(packet) == 0:
             print Packet().unpack(packet)
             self.etime = time.time()
-            print 'RTT : ', self.etime - self.stime
             self.clientSocket.close()
         else:
             print chksum(packet)

@@ -35,3 +35,6 @@ def chksum(pkt):
         w = (ord(pkt[i]) << 8 ) + ord(pkt[i+1])
         s = carry_around_add(s, w)
     return ~s & 0xfff
+
+if __name__ == "__main__":
+    pass
