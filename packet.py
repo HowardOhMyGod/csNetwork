@@ -1,6 +1,5 @@
 import struct
 
-
 class Packet:
     def __init__(self, sport = 0, dport = 0):
         # TCP packet
@@ -18,7 +17,7 @@ class Packet:
     def pack(self):
         tcp_packet = struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, self.chksum)
         ip_pkt = struct.pack('!4s4s', self.src, self.dst)
-        
+
         checksum = chksum(tcp_packet + ip_pkt)
 
         return struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, checksum) + ip_pkt
