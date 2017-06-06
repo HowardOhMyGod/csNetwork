@@ -1,6 +1,7 @@
 import socket
 from packet import *
 import time
+from nat import NAT
 
 BUFFER_SIZE = 10240
 RTT = 0.1
@@ -30,6 +31,7 @@ class Client:
     def send(self):
         # make packet and set RTT = 200ms
         pkt = self.makePkt()
+        
         time.sleep(RTT)
 
         # send and recieve packet from server
