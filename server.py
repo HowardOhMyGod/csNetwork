@@ -30,8 +30,8 @@ class Server:
                 # make response packet
                 resPacket = Packet(address[1], packet[1])
                 resPacket.ack = self.ackInc(packet[2])
-                resPacket.src = socket.inet_pton(socket.AF_INET, self.ip)
-                resPacket.dst = socket.inet_pton(socket.AF_INET, address[0])
+                resPacket.src =  self.ip
+                resPacket.dst = address[0]
 
                 time.sleep(RTT)
                 self.serverSocket.sendto(resPacket.pack(), address)

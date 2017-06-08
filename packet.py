@@ -1,4 +1,5 @@
 import struct
+import socket
 
 class Packet:
     def __init__(self, sport = 0, dport = 0):
@@ -9,21 +10,29 @@ class Packet:
         self.ack = 0
         self.chksum = 0
 
+        # initial connection
+        self.ACK = 0
+        self.SYN = 0
+
         # IP packet
         self.dst = 0
         self.src = 0
 
     # pack tcp and ip packet
     def pack(self):
-        tcp_packet = struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, self.chksum)
+        # ip to str
+        self.src = socket.inet_pton(socket.AF_INET, self.src)
+        self.dst = socket.inet_pton(socket.AF_INET, self.dst)
+
+        tcp_packet = struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, self.chksum, self.ACK, self.SYN)
         ip_pkt = struct.pack('!4s4s', self.src, self.dst)
 
         checksum = chksum(tcp_packet + ip_pkt)
 
-        return struct.pack('!2H2Ih', self.sport, self.dport, self.seq, self.ack, checksum) + ip_pkt
+        return struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN) + ip_pkt
 
     def unpack(self, packet):
-        return struct.unpack('!2H2Ih4s4s', packet)
+        return struct.unpack('!2H2Ih2b4s4s', packet)
 
 
 def chksum(pkt):
