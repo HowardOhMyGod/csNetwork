@@ -31,8 +31,12 @@ class Packet:
 
         return struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN) + ip_pkt
 
+    # unpack TCP packet and IP packet
     def unpack(self, packet):
-        return struct.unpack('!2H2Ih2b4s4s', packet)
+        pkt = list(struct.unpack('!2H2Ih2b4s4s', packet))
+        pkt[7] = socket.inet_ntop(socket.AF_INET, pkt[7])
+        pkt[8] = socket.inet_ntop(socket.AF_INET, pkt[8])
+        return tuple(pkt)
 
 
 def chksum(pkt):

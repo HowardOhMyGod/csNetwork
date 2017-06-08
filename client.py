@@ -3,6 +3,7 @@ from packet import *
 import time
 from nat import NAT
 from random import randint
+from sys import exit
 
 BUFFER_SIZE = 10240
 RTT = 0.1
@@ -19,6 +20,9 @@ class Client:
         self.sport = sport
         self.src = src
 
+        # track seq_num
+        self.seq = 0
+
         # display parameters
         print '=====Parameter====='
         print 'The RTT delay = {} ms'.format(RTT*100*2)
@@ -32,34 +36,53 @@ class Client:
         print 'Please Input Server [IP] [Port] to connect'
 
         # _input = raw_input('>>> ').split(' ')
-        _input = '192.0.0.3 45678'.split(' ')
+        _input = '127.0.0.1 12000'.split(' ')
         self.dst = _input[0]
         self.dport = int(_input[1])
 
     # three-way hand shake
     def threeway(self):
         print '=====Start the three-way handshake====='
-        print 'Send a packet(SYN) to {0} : {1}'.format(self.dst, self.dport)
-
+        self.seq = randint(1, 10000)
         # first connect pkt
         syn_pkt = Packet(self.sport, self.dport)
         syn_pkt.dst = self.dst
         syn_pkt.src = self.src
-        syn_pkt.seq = randint(1, 10000)
+        syn_pkt.seq = self.seq
         syn_pkt.SYN = 1
+        print 'seq = ', syn_pkt.seq
 
-        print Packet().unpack(syn_pkt.pack())
+        print 'Send a packet(SYN) to {0} : {1}'.format(self.dst, self.dport)
+        self.send(syn_pkt.pack(), self.dst, self.dport)
 
+        # waiting for server accept
+        while True:
+            packet, serv_addr = self.clientSocket.recvfrom(BUFFER_SIZE)
+            rcv_pkt = Packet().unpack(packet)
+
+            print 'Receive a packet(SYN/ACK) from {0}'.format(serv_addr)
+            print '     Receive a packet (seq_num = {0}, ack_num = {1})'.format(rcv_pkt[2], rcv_pkt[3])
+
+            # synbit == ackbit == 1 and ack_num == seq_num + 1
+            if rcv_pkt[5] == rcv_pkt[6] == 1 and rcv_pkt[3] == (self.seq + 1):
+                syn_pkt = Packet(self.sport, self.dport)
+                syn_pkt.dst = self.dst
+                syn_pkt.src = self.src
+                syn_pkt.ack = rcv_pkt[2] + 1
+                syn_pkt.ACK = 1
+
+                print 'Send a packet(SYN) to {0} : {1}'.format(rcv_pkt[7], rcv_pkt[0])
+                self.send(syn_pkt.pack(), rcv_pkt[7], rcv_pkt[0])
+                print '=====Complete the three-way handshake====='
+                break
+            else:
+                print 'Three-way handshake failed...'
+                exit()
     # send packet to server
-    def send(self):
-        # make packet and set RTT = 200ms
-        pkt = self.makePkt()
-
+    def send(self, pkt, dst, dport):
         time.sleep(RTT)
-
         # send and recieve packet from server
-        self.clientSocket.sendto(pkt, (self.dst, self.dport))
-        self.recv()
+        self.clientSocket.sendto(pkt, (dst, dport))
 
     # recieve packet from server
     def recv(self):
