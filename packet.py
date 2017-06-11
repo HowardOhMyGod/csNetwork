@@ -1,5 +1,7 @@
 import struct
 import socket
+import string
+import random
 
 class Packet:
     def __init__(self, sport = 0, dport = 0):
@@ -18,8 +20,9 @@ class Packet:
         self.dst = 0
         self.src = 0
 
+
     # pack tcp and ip packet
-    def pack(self):
+    def pack(self, data = ''):
         # ip to str
         self.src = socket.inet_pton(socket.AF_INET, self.src)
         self.dst = socket.inet_pton(socket.AF_INET, self.dst)
@@ -27,18 +30,38 @@ class Packet:
         tcp_packet = struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, self.chksum, self.ACK, self.SYN)
         ip_pkt = struct.pack('!4s4s', self.src, self.dst)
 
-        checksum = chksum(tcp_packet + ip_pkt)
+        if data != '':
+            payload = ''
+            for i in range(512):
+                payload += struct.pack('!c', data[i])
+            
+            checksum = chksum(tcp_packet + ip_pkt + payload)
+            return struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN) + ip_pkt + payload
 
-        return struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN) + ip_pkt
+        else:
+            checksum = chksum(tcp_packet + ip_pkt)
+            return struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN) + ip_pkt
+
 
     # unpack TCP packet and IP packet
-    def unpack(self, packet):
-        pkt = list(struct.unpack('!2H2Ih2b4s4s', packet))
+    def unpack(self, packet, plen = 0):
+        if plen == 0:
+            pkt = list(struct.unpack('!2H2Ih2b4s4s', packet))
+        else:
+            pkt = list(struct.unpack('!2H2Ih2b4s4s{}c'.format(plen), packet))
         pkt[7] = socket.inet_ntop(socket.AF_INET, pkt[7])
         pkt[8] = socket.inet_ntop(socket.AF_INET, pkt[8])
         return tuple(pkt)
 
+    def makeData(self):
+        output = ''
+        data_set = string.letters + '1234567890'
 
+        for i in range(10240):
+            c = struct.pack('!c', random.choice(data_set))
+            output += c
+
+        return output
 def chksum(pkt):
     def carry_around_add(a, b):
         c = a + b

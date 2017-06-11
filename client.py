@@ -50,7 +50,7 @@ class Client:
         syn_pkt.src = self.src
         syn_pkt.seq = self.seq
         syn_pkt.SYN = 1
-        print 'seq = ', syn_pkt.seq
+        # print 'seq = ', syn_pkt.seq
 
         print 'Send a packet(SYN) to {0} : {1}'.format(self.dst, self.dport)
         self.send(syn_pkt.pack(), self.dst, self.dport)
@@ -70,6 +70,7 @@ class Client:
                 syn_pkt.src = self.src
                 syn_pkt.ack = rcv_pkt[2] + 1
                 syn_pkt.ACK = 1
+                syn_pkt.seq = rcv_pkt[3]
 
                 print 'Send a packet(SYN) to {0} : {1}'.format(rcv_pkt[7], rcv_pkt[0])
                 self.send(syn_pkt.pack(), rcv_pkt[7], rcv_pkt[0])
@@ -85,15 +86,40 @@ class Client:
         self.clientSocket.sendto(pkt, (dst, dport))
 
     # recieve packet from server
-    def recv(self):
-        packet, server = self.clientSocket.recvfrom(BUFFER_SIZE)
+    def startTorecv(self):
+        ack = 0
 
-        if chksum(packet) == 0:
-            print Packet().unpack(packet)
-            self.clientSocket.close()
-        else:
-            print chksum(packet)
+        print 'Receive a file from {} : {}'.format(self.dst, self.dport)
+        while ack != 10240:
+            packet, server = self.clientSocket.recvfrom(BUFFER_SIZE)
+            pkt = Packet().unpack(packet, plen = MSS)
+            correct = chksum(packet)
+
+            ack = pkt[2] + MSS
+
+            if correct == 0:
+                print recv_msg(pkt)
+
+                reply = Packet(self.sport, self.dport)
+                reply.seq = pkt[3]
+                reply.ack = ack
+                reply.dst = self.dst
+                reply.src = self.src
+
+                self.send(reply.pack(), self.dst, self.dport)
+            else:
+                print 'Receive fail...',chksum(packet)
+    # def fourway(self):
+    #     self.clientSocket.close()
+
+
+
+
+def recv_msg(pkt):
+    return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
+
 
 if __name__ == "__main__":
     client = Client('127.0.0.3',2000)
     client.threeway()
+    client.startTorecv()

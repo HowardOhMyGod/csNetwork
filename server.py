@@ -16,9 +16,18 @@ class Server:
         self.serverSocket.bind((ip, port))
         self.port = port
         self.ip = ip
+        self.dst = ''
+        self.dport = 0
 
         # track seq
         self.seq = 0
+
+        # send file
+        self.file = Packet().makeData()
+
+        # flow control and congestion control
+        self.cwnd = 1
+        self.rwnd = BUFFER_SIZE
 
         # display parameters
         print '=====Parameter====='
@@ -32,12 +41,15 @@ class Server:
     def threeway(self):
         while True:
             packet, address = self.serverSocket.recvfrom(1024)
-            print '=====Start the three-way handshake====='
-            print 'Receive a packet(SYN) from {0}'.format(address)
+
+            self.dst = address[0]
+            self.dport = address[1]
 
             pkt = Packet().unpack(packet)
             # first receive client ack = 0 synbit = 1
             if pkt[5] == 0 and pkt[6] == 1:
+                print '=====Start the three-way handshake====='
+                print 'Receive a packet(SYN) from {0}'.format(address)
                 print '     Recieve a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
 
                 self.seq = randint(1, 10000)
@@ -54,19 +66,60 @@ class Server:
 
             # second receive ackbit = 1
             elif pkt[5] == 1 and pkt[3] == (self.seq + 1):
+                self.ack = pkt[2] + 1
+                print 'Recieve a packet(ACK) from {}'.format(address)
                 print '     Recieve a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
                 print '=====Complete the three-way handshake====='
                 break
             else:
                 print 'Three-way handshake failed...'
                 exit()
+    # send file to client after three-way connection
+    def startTosend(self):
+        print '\nStart to send the file, the file size is 10240 bytes.'
+        print '*****Slow start*****'
+
+        self.seq = 0
+        self.cwnd = MSS
+
+        base = 1
+        next_seq = 0
+
+        # send segment until file transmit completly
+        while next_seq < len(self.file):
+            print 'cwnd = {0}, rwnd = {1}, threshold = {2}'.format(self.cwnd, self.rwnd, THRES)
+
+            reply_pkt = Packet(self.port, self.dport)
+            reply_pkt.dst = self.dst
+            reply_pkt.src = self.ip
+
+            reply_pkt.ack = self.ack
+            reply_pkt.seq = self.seq
+
+            data = self.file[next_seq: next_seq + MSS]
+            # print 'data len = {0}, next_seq = {1}'.format(len(data), next_seq)
+            print '          Send a packet at : {} byte'.format(next_seq + 1)
+            self.send(reply_pkt.pack(data = data), self.dst, self.dport)
+
+            while True:
+                packet, address = self.serverSocket.recvfrom(1024)
+                pkt = Packet().unpack(packet)
+
+                if pkt[3] == self.seq + MSS:
+                    print recv_msg(pkt)
+                    next_seq = pkt[3]
+                    self.ack = pkt[2] + 1
+                    self.seq = next_seq
+                    break
+                else:
+                    print 'Server stop transmisstin...'
+                    break
+    # def fourway(self):
+
+
     def send(self, pkt, dst, dport):
         time.sleep(RTT)
         self.serverSocket.sendto(pkt, (dst, dport))
-
-    # ack logic
-    def ackInc(self,seq):
-        return seq + 1
 
     # server receive
     def recv(self):
@@ -87,6 +140,10 @@ class Server:
             else:
                 print chksum(packet)
 
+def recv_msg(pkt):
+    return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
+
 if __name__ == "__main__":
     server = Server('127.0.0.1', 12000)
     server.threeway()
+    server.startTosend()
