@@ -53,16 +53,14 @@ class Server:
                 print '     Recieve a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
 
                 self.seq = randint(1, 10000)
-                reply_pkt = Packet(self.port, address[1])
+                reply_pkt = self.pkt_init()
                 reply_pkt.ack = pkt[2] + 1
                 reply_pkt.seq = self.seq
                 reply_pkt.SYN = 1
                 reply_pkt.ACK = 1
-                reply_pkt.src = self.ip
-                reply_pkt.dst = address[0]
 
-                print 'Send a packet(SYN/ACK) to {0} : {1}'.format(pkt[7], pkt[0])
-                self.send(reply_pkt.pack(), pkt[7], pkt[0])
+                print 'Send a packet(SYN/ACK) to {0} : {1}'.format(pkt[8], pkt[0])
+                self.send(reply_pkt.pack(), pkt[8], pkt[0])
 
             # second receive ackbit = 1
             elif pkt[5] == 1 and pkt[3] == (self.seq + 1):
@@ -89,9 +87,7 @@ class Server:
         while next_seq < len(self.file):
             print 'cwnd = {0}, rwnd = {1}, threshold = {2}'.format(self.cwnd, self.rwnd, THRES)
 
-            reply_pkt = Packet(self.port, self.dport)
-            reply_pkt.dst = self.dst
-            reply_pkt.src = self.ip
+            reply_pkt = self.pkt_init()
 
             reply_pkt.ack = self.ack
             reply_pkt.seq = self.seq
@@ -114,8 +110,48 @@ class Server:
                 else:
                     print 'Server stop transmisstin...'
                     break
-    # def fourway(self):
+    # close a connection
+    def fourway(self):
+        print '=====Start the four-way handshake====='
+        pkt = self.pkt_init()
+        pkt.FIN = 1
+        pkt.seq = self.seq
+        pkt.ack = self.ack
 
+        print 'Send a packet(FIN) to {0} : {1}'.format(self.dst, self.dport)
+        self.send(pkt.pack(), self.dst, self.dport)
+
+        while True:
+            packet, address = self.serverSocket.recvfrom(1024)
+            rcv_pkt = Packet().unpack(packet)
+
+            # second handshake
+            if rcv_pkt[5] == 1 and rcv_pkt[3] == self.seq + 1:
+                print 'Receive a packet(ACK) from ', address
+                print recv_msg(rcv_pkt)
+            # third handshake
+            elif rcv_pkt[7] == 1:
+                print 'Receive a packet(FIN) from ', address
+                print recv_msg(rcv_pkt)
+                print 'Send a packet(ACK) to {0} : {1}'.format(self.dst, self.dport)
+
+                pkt = self.pkt_init()
+                pkt.ACK = 1
+                pkt.ack = rcv_pkt[2] + 1
+                pkt.seq = rcv_pkt[3]
+
+                self.send(pkt.pack(), self.dst, self.dport)
+                # self.serverSocket.close()
+                print '=====Complete the four-way handshake====='
+                print 'Listening for Node...'
+                break
+
+    def pkt_init(self):
+        pkt = Packet(self.port, self.dport)
+        pkt.dst = self.dst
+        pkt.src = self.ip
+
+        return pkt
 
     def send(self, pkt, dst, dport):
         time.sleep(RTT)
@@ -147,3 +183,4 @@ if __name__ == "__main__":
     server = Server('127.0.0.1', 12000)
     server.threeway()
     server.startTosend()
+    server.fourway()

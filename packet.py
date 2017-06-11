@@ -12,9 +12,10 @@ class Packet:
         self.ack = 0
         self.chksum = 0
 
-        # initial connection
+        # initial and close connection
         self.ACK = 0
         self.SYN = 0
+        self.FIN = 0
 
         # IP packet
         self.dst = 0
@@ -27,30 +28,30 @@ class Packet:
         self.src = socket.inet_pton(socket.AF_INET, self.src)
         self.dst = socket.inet_pton(socket.AF_INET, self.dst)
 
-        tcp_packet = struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, self.chksum, self.ACK, self.SYN)
+        tcp_packet = struct.pack('!2H2Ih3b', self.sport, self.dport, self.seq, self.ack, self.chksum, self.ACK, self.SYN, self.FIN)
         ip_pkt = struct.pack('!4s4s', self.src, self.dst)
 
         if data != '':
             payload = ''
             for i in range(512):
                 payload += struct.pack('!c', data[i])
-            
+
             checksum = chksum(tcp_packet + ip_pkt + payload)
-            return struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN) + ip_pkt + payload
+            return struct.pack('!2H2Ih3b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN, self.FIN) + ip_pkt + payload
 
         else:
             checksum = chksum(tcp_packet + ip_pkt)
-            return struct.pack('!2H2Ih2b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN) + ip_pkt
+            return struct.pack('!2H2Ih3b', self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN, self.FIN) + ip_pkt
 
 
     # unpack TCP packet and IP packet
     def unpack(self, packet, plen = 0):
         if plen == 0:
-            pkt = list(struct.unpack('!2H2Ih2b4s4s', packet))
+            pkt = list(struct.unpack('!2H2Ih3b4s4s', packet))
         else:
-            pkt = list(struct.unpack('!2H2Ih2b4s4s{}c'.format(plen), packet))
-        pkt[7] = socket.inet_ntop(socket.AF_INET, pkt[7])
+            pkt = list(struct.unpack('!2H2Ih3b4s4s{}c'.format(plen), packet))
         pkt[8] = socket.inet_ntop(socket.AF_INET, pkt[8])
+        pkt[9] = socket.inet_ntop(socket.AF_INET, pkt[9])
         return tuple(pkt)
 
     def makeData(self):

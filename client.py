@@ -72,8 +72,8 @@ class Client:
                 syn_pkt.ACK = 1
                 syn_pkt.seq = rcv_pkt[3]
 
-                print 'Send a packet(SYN) to {0} : {1}'.format(rcv_pkt[7], rcv_pkt[0])
-                self.send(syn_pkt.pack(), rcv_pkt[7], rcv_pkt[0])
+                print 'Send a packet(SYN) to {0} : {1}'.format(rcv_pkt[8], rcv_pkt[0])
+                self.send(syn_pkt.pack(), rcv_pkt[8], rcv_pkt[0])
                 print '=====Complete the three-way handshake====='
                 break
             else:
@@ -101,7 +101,8 @@ class Client:
                 print recv_msg(pkt)
 
                 reply = Packet(self.sport, self.dport)
-                reply.seq = pkt[3]
+                self.seq = pkt[3]
+                reply.seq = self.seq
                 reply.ack = ack
                 reply.dst = self.dst
                 reply.src = self.src
@@ -109,8 +110,45 @@ class Client:
                 self.send(reply.pack(), self.dst, self.dport)
             else:
                 print 'Receive fail...',chksum(packet)
-    # def fourway(self):
-    #     self.clientSocket.close()
+    def fourway(self):
+        print '=====Start the four-way handshake'
+
+        while True:
+            packet, address = self.clientSocket.recvfrom(BUFFER_SIZE)
+            rcv_pkt = Packet().unpack(packet)
+
+            if rcv_pkt[7]:
+                print 'Receive a packet(FIN) from ', address
+                print recv_msg(rcv_pkt)
+
+                pkt = Packet(self.sport, self.dport)
+                pkt.dst = self.dst
+                pkt.src = self.src
+                pkt.seq = rcv_pkt[3]
+                pkt.ACK = 1
+                pkt.ack = rcv_pkt[2] + 1
+
+                print 'Send a packet(ACK) to ', address
+                self.send(pkt.pack(), self.dst, self.dport)
+
+                pkt = Packet(self.sport, self.dport)
+                pkt.dst = self.dst
+                pkt.src = self.src
+                seq = rcv_pkt[3]
+                pkt.seq = seq
+                pkt.FIN = 1
+                pkt.ack = rcv_pkt[2] + 1
+
+
+
+                print 'Send a packet(FIN) to ', address
+                self.send(pkt.pack(), self.dst, self.dport)
+            elif rcv_pkt[5] and rcv_pkt[3] == seq +1:
+                print 'Receive a packet(ACK) from ', address
+                print recv_msg(rcv_pkt)
+                # self.clientSocket.close()
+                print '=====Complete the four-way handshake====='
+                break
 
 
 
@@ -123,3 +161,4 @@ if __name__ == "__main__":
     client = Client('127.0.0.3',2000)
     client.threeway()
     client.startTorecv()
+    client.fourway()
