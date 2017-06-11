@@ -146,8 +146,8 @@ class Client:
             elif rcv_pkt[5] and rcv_pkt[3] == seq +1:
                 print 'Receive a packet(ACK) from ', address
                 print recv_msg(rcv_pkt)
-                # self.clientSocket.close()
                 print '=====Complete the four-way handshake====='
+                self.clientSocket.close()
                 break
 
 
@@ -158,7 +158,8 @@ def recv_msg(pkt):
 
 
 if __name__ == "__main__":
-    client = Client('127.0.0.3',2000)
-    client.threeway()
-    client.startTorecv()
-    client.fourway()
+    for i in range(2):
+        client = Client('127.0.0.3',2000)
+        client.threeway()
+        client.startTorecv()
+        client.fourway()

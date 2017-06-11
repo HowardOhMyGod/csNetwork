@@ -141,9 +141,10 @@ class Server:
                 pkt.seq = rcv_pkt[3]
 
                 self.send(pkt.pack(), self.dst, self.dport)
-                # self.serverSocket.close()
+
                 print '=====Complete the four-way handshake====='
                 print 'Listening for Node...'
+                self.serverSocket.close()
                 break
 
     def pkt_init(self):
@@ -180,7 +181,8 @@ def recv_msg(pkt):
     return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
 
 if __name__ == "__main__":
-    server = Server('127.0.0.1', 12000)
-    server.threeway()
-    server.startTosend()
-    server.fourway()
+    for i in range(2):
+        server = Server('127.0.0.1', 12000)
+        server.threeway()
+        server.startTosend()
+        server.fourway()
