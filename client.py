@@ -72,8 +72,8 @@ class Client:
                 syn_pkt.ACK = 1
                 syn_pkt.seq = rcv_pkt[3]
 
-                print 'Send a packet(SYN) to {0} : {1}'.format(rcv_pkt[8], rcv_pkt[0])
-                self.send(syn_pkt.pack(), rcv_pkt[8], rcv_pkt[0])
+                print 'Send a packet(SYN) to {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
+                self.send(syn_pkt.pack(), rcv_pkt[9], rcv_pkt[0])
                 print '=====Complete the three-way handshake====='
                 break
             else:
@@ -106,6 +106,7 @@ class Client:
                 reply.ack = ack
                 reply.dst = self.dst
                 reply.src = self.src
+                reply.rwnd -= (pkt[2] + 1)
 
                 self.send(reply.pack(), self.dst, self.dport)
             else:

@@ -59,8 +59,8 @@ class Server:
                 reply_pkt.SYN = 1
                 reply_pkt.ACK = 1
 
-                print 'Send a packet(SYN/ACK) to {0} : {1}'.format(pkt[8], pkt[0])
-                self.send(reply_pkt.pack(), pkt[8], pkt[0])
+                print 'Send a packet(SYN/ACK) to {0} : {1}'.format(pkt[9], pkt[0])
+                self.send(reply_pkt.pack(), pkt[9], pkt[0])
 
             # second receive ackbit = 1
             elif pkt[5] == 1 and pkt[3] == (self.seq + 1):
@@ -106,6 +106,7 @@ class Server:
                     next_seq = pkt[3]
                     self.ack = pkt[2] + 1
                     self.seq = next_seq
+                    self.rwnd = pkt[8]
                     break
                 else:
                     print 'Server stop transmisstin...'
@@ -141,7 +142,6 @@ class Server:
                 pkt.seq = rcv_pkt[3]
 
                 self.send(pkt.pack(), self.dst, self.dport)
-
                 print '=====Complete the four-way handshake====='
                 print 'Listening for Node...'
                 self.serverSocket.close()

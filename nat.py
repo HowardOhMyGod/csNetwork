@@ -4,57 +4,94 @@ from packet import *
 
 nat_table = {
     '127.0.0.3:2000': '127.0.0.5:3000',
-    '127.0.0.4:2100': '127.0.0.5:4000'
+    '127.0.0.4:2100': '127.0.0.6:3000'
 }
+
+TCP = '!2Ih3bH'
+PORT = '!2H'
+IP = '!4s4s'
 
 # client side NAT
 class NAT:
     def __init__(self, pkt):
-        packet = struct.unpack('!2H2Ih4s4s', pkt)
+        self.pkt = pkt
 
-        self.origin_pkt = pkt
-        self.sport = packet[0]
-        self.dport = packet[1]
-        self.seq = packet[2]
-        self.ack = packet[3]
-        self.cksum = 0
-        self.src = packet[5] # pack ip
-        self.dst = packet[6] # pack ip
+    def getIpAndPort(self):
+        pkt = self.pkt
+        # packet size
+        tcp_size = struct.calcsize(TCP)
+        ip_size = struct.calcsize(IP)
+        port_size = struct.calcsize(PORT)
+
+        # extract ip datagram and TCP segment get src, dst, sport, dport
+        ip_pkt = struct.unpack(IP, pkt[port_size + tcp_size: port_size + tcp_size + ip_size])
+        ip = []
+        ip.append(socket.inet_ntop(socket.AF_INET, ip_pkt[0]))
+        ip.append(socket.inet_ntop(socket.AF_INET, ip_pkt[1]))
+
+        port_pkt = struct.unpack(PORT, pkt[:port_size])
+
+        # slice packet and not unpack
+        tcp_pkt = pkt[port_size: port_size + tcp_size]
+        payload = pkt[port_size + tcp_size + ip_size:]
+
+
+        return list(port_pkt), tcp_pkt, ip, payload
+
+    def modifyCksum(self, pkt):
+        cksum = struct.pack('!h', 0)
+        head = pkt[:12]
+        tail = pkt[14:]
+
+        before_cksum_pkt = head + cksum + tail
+        cksum = struct.pack('!h', chksum(before_cksum_pkt))
+
+        return head + cksum + tail
+
+    def packIP(self, src, dst):
+        src = socket.inet_pton(socket.AF_INET, src)
+        dst = socket.inet_pton(socket.AF_INET, dst)
+
+        return struct.pack(IP, src, dst)
 
     # send nat
     def sendToServer(self):
-        src = socket.inet_ntop(socket.AF_INET, self.src)
-        saddr = str(src) + ':' + str(self.sport) # source ip and port
+        port, tcp_pkt, ip, data_pkt = self.getIpAndPort()
+        saddr = ip[0] + ':' + str(port[0])
 
         # repack packet with nat src and port and update chksum
         if saddr in nat_table:
-            nat_src = socket.inet_pton(socket.AF_INET, nat_table[saddr].split(':')[0]) # get nat src
+            nat_src = nat_table[saddr].split(':')[0] # get nat src
             nat_port = int(nat_table[saddr].split(':')[1]) # get nat port
 
-            temp_pkt = struct.pack('!2H2Ih4s4s', nat_port, self.dport, self.seq, self.ack, self.cksum, nat_src, self.dst)
-            self.cksum = chksum(temp_pkt)
+            port_pkt = struct.pack(PORT, nat_port, port[1])
+            ip_pkt = self.packIP(nat_src, ip[1])
 
-            return struct.pack('!2H2Ih4s4s', nat_port, self.dport, self.seq, self.ack, self.cksum, nat_src, self.dst)
+            temp_pkt = port_pkt + tcp_pkt + ip_pkt + data_pkt
+
+            return self.modifyCksum(temp_pkt)
         else:
-            return self.origin_pkt
+            # return original pkt
+            return self.pkt
 
     # recieve nat
     def sendToClient(self):
-        dst = socket.inet_ntop(socket.AF_INET, self.dst)
-        daddr = str(dst) + ':' + str(self.dport) # dest ip and port
+        port, tcp_pkt, ip, data_pkt = self.getIpAndPort()
+        daddr = ip[1] + ':' + str(port[1])
 
         if daddr in nat_table.values():
             # find origin ip
-            nat_dst = socket.inet_pton(socket.AF_INET, self.findkeybyval(daddr).split(':')[0])
+            nat_dst = self.findkeybyval(daddr).split(':')[0]
             nat_port = int(self.findkeybyval(daddr).split(':')[1])
 
-            temp_pkt = struct.pack('!2H2Ih4s4s', self.sport, nat_port, self.seq, self.ack, self.cksum, self.src, nat_dst)
-            self.cksum = chksum(temp_pkt)
+            port_pkt = struct.pack(PORT, port[0], nat_port)
+            ip_pkt = self.packIP(ip[0], nat_dst)
 
-            return struct.pack('!2H2Ih4s4s', self.sport, nat_port, self.seq, self.ack, self.cksum, self.src, nat_dst)
+            temp_pkt = port_pkt + tcp_pkt + ip_pkt + data_pkt
+
+            return self.modifyCksum(temp_pkt)
         else:
-            return self.origin_pkt
-
+            return self.pkt
 
     def findkeybyval(self, val):
         for ip, nat in nat_table.iteritems():
@@ -63,15 +100,10 @@ class NAT:
         return None
 
 if __name__ == '__main__':
-    pkt = Packet()
-    pkt.sport = 12000
-    pkt.dport = 3000
-    pkt.dst = socket.inet_pton(socket.AF_INET, '127.0.0.5')
-    pkt.src = socket.inet_pton(socket.AF_INET, '127.0.0.1')
+    pkt = Packet(2000, 3000)
+    pkt.src = '127.0.0.1'
+    pkt.dst = '127.0.0.5'
 
-    p = pkt.pack()
-    print 'origin packet : ', Packet().unpack(p)
-    n = NAT(p)
-    print 'nat packet : ', Packet().unpack(n.sendToClient())
-    print 'nat ip :', socket.inet_ntop(socket.AF_INET, Packet().unpack(n.sendToClient())[6])
-    print 'cksum: ', chksum(n.sendToClient())
+    pkt = pkt.pack(data='123')
+    modify_pkt = NAT(pkt).sendToClient()
+    print Packet().unpack(modify_pkt, plen = 3)
