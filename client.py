@@ -1,7 +1,6 @@
 import socket
 from packet import *
 import time
-from nat import NAT
 from random import randint
 from sys import exit
 
@@ -9,6 +8,8 @@ BUFFER_SIZE = 10240
 RTT = 0.1
 THRES = 65535
 MSS = 512
+
+ROUTER = ('127.0.0.8', 1500)
 
 
 class Client:
@@ -39,6 +40,10 @@ class Client:
         _input = '127.0.0.1 12000'.split(' ')
         self.dst = _input[0]
         self.dport = int(_input[1])
+    def recvfromServ(self):
+        packet, addr = self.clientSocket.recvfrom(BUFFER_SIZE)
+
+        return packet, addr
 
     # three-way hand shake
     def threeway(self):
@@ -57,10 +62,10 @@ class Client:
 
         # waiting for server accept
         while True:
-            packet, serv_addr = self.clientSocket.recvfrom(BUFFER_SIZE)
+            packet, serv_addr = self.recvfromServ()
             rcv_pkt = Packet().unpack(packet)
 
-            print 'Receive a packet(SYN/ACK) from {0}'.format(serv_addr)
+            print 'Receive a packet(SYN/ACK) from {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
             print '     Receive a packet (seq_num = {0}, ack_num = {1})'.format(rcv_pkt[2], rcv_pkt[3])
 
             # synbit == ackbit == 1 and ack_num == seq_num + 1
@@ -82,8 +87,7 @@ class Client:
     # send packet to server
     def send(self, pkt, dst, dport):
         time.sleep(RTT)
-        # send and recieve packet from server
-        self.clientSocket.sendto(pkt, (dst, dport))
+        self.clientSocket.sendto(pkt, ROUTER)
 
     # recieve packet from server
     def startTorecv(self):
@@ -91,7 +95,7 @@ class Client:
 
         print 'Receive a file from {} : {}'.format(self.dst, self.dport)
         while ack != 10240:
-            packet, server = self.clientSocket.recvfrom(BUFFER_SIZE)
+            packet, server = self.recvfromServ()
             pkt = Packet().unpack(packet, plen = MSS)
             correct = chksum(packet)
 
@@ -115,11 +119,11 @@ class Client:
         print '=====Start the four-way handshake'
 
         while True:
-            packet, address = self.clientSocket.recvfrom(BUFFER_SIZE)
+            packet, address = self.recvfromServ()
             rcv_pkt = Packet().unpack(packet)
 
             if rcv_pkt[7]:
-                print 'Receive a packet(FIN) from ', address
+                print 'Receive a packet(FIN) from {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
                 print recv_msg(rcv_pkt)
 
                 pkt = Packet(self.sport, self.dport)
@@ -129,7 +133,7 @@ class Client:
                 pkt.ACK = 1
                 pkt.ack = rcv_pkt[2] + 1
 
-                print 'Send a packet(ACK) to ', address
+                print 'Send a packet(ACK) to {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
                 self.send(pkt.pack(), self.dst, self.dport)
 
                 pkt = Packet(self.sport, self.dport)
@@ -142,10 +146,10 @@ class Client:
 
 
 
-                print 'Send a packet(FIN) to ', address
+                print 'Send a packet(FIN) to {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
                 self.send(pkt.pack(), self.dst, self.dport)
             elif rcv_pkt[5] and rcv_pkt[3] == seq +1:
-                print 'Receive a packet(ACK) from ', address
+                print 'Receive a packet(ACK) from {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
                 print recv_msg(rcv_pkt)
                 print '=====Complete the four-way handshake====='
                 self.clientSocket.close()
@@ -159,8 +163,7 @@ def recv_msg(pkt):
 
 
 if __name__ == "__main__":
-    for i in range(2):
-        client = Client('127.0.0.3',2000)
-        client.threeway()
-        client.startTorecv()
-        client.fourway()
+    client = Client('127.0.0.3',2000)
+    client.threeway()
+    client.startTorecv()
+    client.fourway()

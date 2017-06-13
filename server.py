@@ -9,6 +9,8 @@ RTT = 0.1
 THRES = 65535
 MSS = 512
 
+ROUTER = ('127.0.0.8', 1500)
+
 class Server:
     # create UDP server socket and bind port
     def __init__(self, ip, port):
@@ -41,15 +43,14 @@ class Server:
     def threeway(self):
         while True:
             packet, address = self.serverSocket.recvfrom(1024)
-
-            self.dst = address[0]
-            self.dport = address[1]
-
             pkt = Packet().unpack(packet)
+
+            self.dst = pkt[9]
+            self.dport = pkt[0]
             # first receive client ack = 0 synbit = 1
             if pkt[5] == 0 and pkt[6] == 1:
                 print '=====Start the three-way handshake====='
-                print 'Receive a packet(SYN) from {0}'.format(address)
+                print 'Receive a packet(SYN) from {0} : {1}'.format(pkt[9], pkt[0])
                 print '     Recieve a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
 
                 self.seq = randint(1, 10000)
@@ -65,7 +66,7 @@ class Server:
             # second receive ackbit = 1
             elif pkt[5] == 1 and pkt[3] == (self.seq + 1):
                 self.ack = pkt[2] + 1
-                print 'Recieve a packet(ACK) from {}'.format(address)
+                print 'Recieve a packet(ACK) from {0} : {1}'.format(pkt[9], pkt[0])
                 print '     Recieve a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
                 print '=====Complete the three-way handshake====='
                 break
@@ -128,11 +129,11 @@ class Server:
 
             # second handshake
             if rcv_pkt[5] == 1 and rcv_pkt[3] == self.seq + 1:
-                print 'Receive a packet(ACK) from ', address
+                print 'Receive a packet(ACK) from {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
                 print recv_msg(rcv_pkt)
             # third handshake
             elif rcv_pkt[7] == 1:
-                print 'Receive a packet(FIN) from ', address
+                print 'Receive a packet(FIN) from {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
                 print recv_msg(rcv_pkt)
                 print 'Send a packet(ACK) to {0} : {1}'.format(self.dst, self.dport)
 
@@ -156,7 +157,7 @@ class Server:
 
     def send(self, pkt, dst, dport):
         time.sleep(RTT)
-        self.serverSocket.sendto(pkt, (dst, dport))
+        self.serverSocket.sendto(pkt, ROUTER)
 
     # server receive
     def recv(self):
@@ -181,8 +182,7 @@ def recv_msg(pkt):
     return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
 
 if __name__ == "__main__":
-    for i in range(2):
-        server = Server('127.0.0.1', 12000)
-        server.threeway()
-        server.startTosend()
-        server.fourway()
+    server = Server('127.0.0.1', 12000)
+    server.threeway()
+    server.startTosend()
+    server.fourway()

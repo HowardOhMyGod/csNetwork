@@ -1,6 +1,7 @@
 import socket
 import struct
 from packet import *
+import time
 
 nat_table = {
     '127.0.0.3:2000': '127.0.0.5:3000',
@@ -11,13 +12,43 @@ TCP = '!2Ih3bH'
 PORT = '!2H'
 IP = '!4s4s'
 
+RTT = 0.1
+
 # client side NAT
 class NAT:
-    def __init__(self, pkt):
-        self.pkt = pkt
+    def __init__(self):
+        self.natSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.natSocket.bind(('127.0.0.8', 1500))
 
-    def getIpAndPort(self):
-        pkt = self.pkt
+        print 'Nat router listen for incoming packet...'
+
+    def start(self):
+        while True:
+            pkt, addr = self.natSocket.recvfrom(10240)
+            port, tcp_pkt, ip, data_pkt = self.getIpAndPort(pkt)
+            print 'Receive packet from ', addr
+
+            # client send to server
+            if ip[0] + ':' + str(port[0]) in nat_table:
+                pkt = self.sendToServer(pkt)
+                time.sleep(RTT)
+                print '       Send a packet to {0} : {1}'.format(ip[1], port[1])
+                self.natSocket.sendto(pkt, (ip[1], port[1]))
+
+            # server send to client
+            elif self.findkeybyval(ip[1] + ':' + str(port[1])):
+                pkt = self.sendToClient(pkt)
+                port, tcp_pkt, ip, data_pkt = self.getIpAndPort(pkt)
+
+                time.sleep(RTT)
+                print '       Send a packet to {0} : {1}'.format(ip[1], port[1])
+                self.natSocket.sendto(pkt, (ip[1], port[1]))
+            else:
+                print ip, port
+
+
+
+    def getIpAndPort(self, pkt):
         # packet size
         tcp_size = struct.calcsize(TCP)
         ip_size = struct.calcsize(IP)
@@ -55,8 +86,8 @@ class NAT:
         return struct.pack(IP, src, dst)
 
     # send nat
-    def sendToServer(self):
-        port, tcp_pkt, ip, data_pkt = self.getIpAndPort()
+    def sendToServer(self, pkt):
+        port, tcp_pkt, ip, data_pkt = self.getIpAndPort(pkt)
         saddr = ip[0] + ':' + str(port[0])
 
         # repack packet with nat src and port and update chksum
@@ -75,8 +106,8 @@ class NAT:
             return self.pkt
 
     # recieve nat
-    def sendToClient(self):
-        port, tcp_pkt, ip, data_pkt = self.getIpAndPort()
+    def sendToClient(self, pkt):
+        port, tcp_pkt, ip, data_pkt = self.getIpAndPort(pkt)
         daddr = ip[1] + ':' + str(port[1])
 
         if daddr in nat_table.values():
@@ -100,10 +131,5 @@ class NAT:
         return None
 
 if __name__ == '__main__':
-    pkt = Packet(2000, 3000)
-    pkt.src = '127.0.0.1'
-    pkt.dst = '127.0.0.5'
-
-    pkt = pkt.pack(data='123')
-    modify_pkt = NAT(pkt).sendToClient()
-    print Packet().unpack(modify_pkt, plen = 3)
+    router = NAT()
+    router.start()
