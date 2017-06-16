@@ -120,6 +120,7 @@ class Client:
                 reply.rwnd -= MSS
 
                 self.send(reply.pack(), self.dst, self.dport)
+            # check chksum and check expect seq
             elif correct == 0 and ack == pkt[2]:
                 print recv_msg(pkt)
                 ack = pkt[2] + MSS
@@ -129,6 +130,16 @@ class Client:
                 reply.seq = self.seq
                 reply.ack = ack
                 reply.rwnd = pkt[8] - MSS
+
+                self.send(reply.pack(), self.dst, self.dport)
+            # gap detect than send dup ack
+            elif correct == 0 and ack != pkt[2]:
+                print recv_msg(pkt)
+
+                reply = pkt_init()
+                self.seq = pkt[3]
+                reply.seq = self.seq
+                reply.ack = ack
 
                 self.send(reply.pack(), self.dst, self.dport)
             else:

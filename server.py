@@ -75,6 +75,8 @@ class Server:
                 exit()
     # send file to client after three-way connection
     def startTosend(self):
+        global THRES
+
         print '\nStart to send the file, the file size is 10240 bytes.'
         print '*****Slow start*****'
 
@@ -83,6 +85,9 @@ class Server:
 
         # base = 1
         next_seq = 0
+        current_ack = 512
+        dup_num = 0
+        loss = False
         # send segment until file transmit completly
         while next_seq < len(self.file):
             if self.cwnd == THRES:
@@ -100,14 +105,18 @@ class Server:
 
                     data = self.file[next_seq: next_seq + MSS]
 
-                    print '          Send a packet at : {} byte'.format(next_seq + 1)
-                    self.send(reply_pkt.pack(data = data), self.dst, self.dport)
+                    print '          Send a packet at : {} byte'.format(next_seq)
+                    # create loss at byte 2048
+                    if next_seq == 2048 and loss:
+                        print '*** Data loss at : 2048 byte'
+                    else:
+                        self.send(reply_pkt.pack(data = data), self.dst, self.dport)
                     next_seq += MSS
                     self.ack += 1
 
                 else: break
-            recv_count = 0
 
+            recv_count = 0
             # wait for client ack
             while True:
                 packet, address = self.serverSocket.recvfrom(1024)
@@ -115,6 +124,27 @@ class Server:
                 recv_count += 1
 
                 print recv_msg(pkt)
+                # print '         next_seq = ', next_seq
+
+                # check duplicate ack
+                if current_ack != pkt[3]:
+                    current_ack = pkt[3]
+                else:
+                    dup_num += 1
+
+                # fast retransmission Tahoe
+                if dup_num == 3:
+                    print 'Receive three duplicate ACKS'
+                    print '*****Fast retransmit*****'
+                    next_seq = current_ack
+                    THRES = self.cwnd / 2
+                    self.cwnd = MSS
+                    self.ack = pkt[2] + 1
+                    self.rwnd = pkt[8]
+                    loss = False
+                    dup_num = 0
+                    break
+
                 self.ack = pkt[2] + 1
                 self.rwnd = pkt[8]
 
@@ -123,7 +153,7 @@ class Server:
                     if self.cwnd < THRES:
                         self.cwnd *= 2
                     break
-                elif pkt[3] == len(self.file) - MSS:
+                elif next_seq == len(self.file):
                     print 'The file transmission is finish.'
                     break
 
@@ -174,24 +204,6 @@ class Server:
         time.sleep(RTT)
         self.serverSocket.sendto(pkt, ROUTER)
 
-    # server receive
-    def recv(self):
-        while True:
-            packet, address = self.serverSocket.recvfrom(1024)
-            # correct checksum
-            if chksum(packet) == 0:
-                packet = Packet().unpack(packet)
-
-                # make response packet
-                resPacket = Packet(address[1], packet[1])
-                resPacket.ack = self.ackInc(packet[2])
-                resPacket.src =  self.ip
-                resPacket.dst = address[0]
-
-                time.sleep(RTT)
-                self.serverSocket.sendto(resPacket.pack(), address)
-            else:
-                print chksum(packet)
 
 def recv_msg(pkt):
     return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
