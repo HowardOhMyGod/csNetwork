@@ -119,7 +119,7 @@ class Server:
                 self.rwnd = pkt[8]
 
                 # print recv_count
-                if recv_count == (self.cwnd / MSS)/2 or self.cwnd == 512:
+                if recv_count == (self.cwnd / MSS) or self.cwnd == 512:
                     if self.cwnd < THRES:
                         self.cwnd *= 2
                     break

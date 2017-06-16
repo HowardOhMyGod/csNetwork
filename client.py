@@ -130,8 +130,7 @@ class Client:
                 reply.ack = ack
                 reply.rwnd = pkt[8] - MSS
 
-                if receive_count % 2 == 1 and receive_count != 0:
-                    self.send(reply.pack(), self.dst, self.dport)
+                self.send(reply.pack(), self.dst, self.dport)
             else:
                 # not in order or loss send duplicate ack
                 print 'Receive fail...',chksum(packet)
