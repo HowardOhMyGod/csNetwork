@@ -6,7 +6,7 @@ from sys import exit
 
 BUFFER_SIZE = 10240
 RTT = 0.1
-THRES = 65535
+THRES = 4096
 MSS = 512
 
 ROUTER = ('127.0.0.8', 1500)
@@ -81,37 +81,52 @@ class Server:
         self.seq = 0
         self.cwnd = MSS
 
-        base = 1
+        # base = 1
         next_seq = 0
-
         # send segment until file transmit completly
         while next_seq < len(self.file):
+            if self.cwnd == THRES:
+                print '***** Congestion avoidance*****'
             print 'cwnd = {0}, rwnd = {1}, threshold = {2}'.format(self.cwnd, self.rwnd, THRES)
 
-            reply_pkt = self.pkt_init()
+            # send segment by cwnd value
+            for i in range(self.cwnd / MSS):
+                if next_seq < len(self.file):
+                    reply_pkt = self.pkt_init()
 
-            reply_pkt.ack = self.ack
-            reply_pkt.seq = self.seq
+                    reply_pkt.ack = self.ack
+                    reply_pkt.seq = next_seq
+                    reply_pkt.rwnd = self.rwnd
 
-            data = self.file[next_seq: next_seq + MSS]
-            # print 'data len = {0}, next_seq = {1}'.format(len(data), next_seq)
-            print '          Send a packet at : {} byte'.format(next_seq + 1)
-            self.send(reply_pkt.pack(data = data), self.dst, self.dport)
+                    data = self.file[next_seq: next_seq + MSS]
 
+                    print '          Send a packet at : {} byte'.format(next_seq + 1)
+                    self.send(reply_pkt.pack(data = data), self.dst, self.dport)
+                    next_seq += MSS
+                    self.ack += 1
+
+                else: break
+            recv_count = 0
+
+            # wait for client ack
             while True:
                 packet, address = self.serverSocket.recvfrom(1024)
                 pkt = Packet().unpack(packet)
+                recv_count += 1
 
-                if pkt[3] == self.seq + MSS:
-                    print recv_msg(pkt)
-                    next_seq = pkt[3]
-                    self.ack = pkt[2] + 1
-                    self.seq = next_seq
-                    self.rwnd = pkt[8]
+                print recv_msg(pkt)
+                self.ack = pkt[2] + 1
+                self.rwnd = pkt[8]
+
+                # print recv_count
+                if recv_count == (self.cwnd / MSS)/2 or self.cwnd == 512:
+                    if self.cwnd < THRES:
+                        self.cwnd *= 2
                     break
-                else:
-                    print 'Server stop transmisstin...'
+                elif pkt[3] == len(self.file) - MSS:
+                    print 'The file transmission is finish.'
                     break
+
     # close a connection
     def fourway(self):
         print '=====Start the four-way handshake====='

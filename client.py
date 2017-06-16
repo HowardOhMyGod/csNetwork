@@ -91,30 +91,56 @@ class Client:
 
     # recieve packet from server
     def startTorecv(self):
-        ack = 0
+        def pkt_init():
+            reply = Packet(self.sport, self.dport)
+            reply.dst = self.dst
+            reply.src = self.src
 
+            return reply
+
+        ack = 0
+        first = True
+        receive_count = 0
         print 'Receive a file from {} : {}'.format(self.dst, self.dport)
         while ack != 10240:
             packet, server = self.recvfromServ()
             pkt = Packet().unpack(packet, plen = MSS)
             correct = chksum(packet)
+            receive_count += 1
 
-            ack = pkt[2] + MSS
-
-            if correct == 0:
+            if correct == 0 and first:
                 print recv_msg(pkt)
+                ack = pkt[2] + MSS
+                first = False
 
-                reply = Packet(self.sport, self.dport)
+                reply = pkt_init()
                 self.seq = pkt[3]
                 reply.seq = self.seq
                 reply.ack = ack
-                reply.dst = self.dst
-                reply.src = self.src
-                reply.rwnd -= (pkt[2] + 1)
+                reply.rwnd -= MSS
 
                 self.send(reply.pack(), self.dst, self.dport)
+            elif correct == 0 and ack == pkt[2]:
+                print recv_msg(pkt)
+                ack = pkt[2] + MSS
+
+                reply = pkt_init()
+                self.seq = pkt[3]
+                reply.seq = self.seq
+                reply.ack = ack
+                reply.rwnd = pkt[8] - MSS
+
+                if receive_count % 2 == 1 and receive_count != 0:
+                    self.send(reply.pack(), self.dst, self.dport)
             else:
+                # not in order or loss send duplicate ack
                 print 'Receive fail...',chksum(packet)
+                reply = pkt_init()
+                reply.seq = pkt[3]
+                reply.ack = ack
+
+                self.send(reply.pack(), self.dst, self.dport)
+
     def fourway(self):
         print '=====Start the four-way handshake'
 

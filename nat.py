@@ -31,7 +31,6 @@ class NAT:
             # client send to server
             if ip[0] + ':' + str(port[0]) in nat_table:
                 pkt = self.sendToServer(pkt)
-                time.sleep(RTT)
                 print '       Send a packet to {0} : {1}'.format(ip[1], port[1])
                 self.natSocket.sendto(pkt, (ip[1], port[1]))
 
@@ -40,7 +39,6 @@ class NAT:
                 pkt = self.sendToClient(pkt)
                 port, tcp_pkt, ip, data_pkt = self.getIpAndPort(pkt)
 
-                time.sleep(RTT)
                 print '       Send a packet to {0} : {1}'.format(ip[1], port[1])
                 self.natSocket.sendto(pkt, (ip[1], port[1]))
             else:
