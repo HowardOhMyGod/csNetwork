@@ -203,3 +203,5 @@ if __name__ == "__main__":
     client.threeway()
     client.startTorecv()
     client.fourway()
+    while True:
+        pass

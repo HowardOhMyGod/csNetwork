@@ -87,7 +87,9 @@ class Server:
         next_seq = 0
         current_ack = 512
         dup_num = 0
-        loss = False
+        loss = True
+
+        fast_recover = False
         # send segment until file transmit completly
         while next_seq < len(self.file):
             if self.cwnd == THRES:
@@ -135,14 +137,15 @@ class Server:
                 # fast retransmission Tahoe
                 if dup_num == 3:
                     print 'Receive three duplicate ACKS'
-                    print '*****Fast retransmit*****'
+                    print '*****Fast recovery*****'
                     next_seq = current_ack
                     THRES = self.cwnd / 2
-                    self.cwnd = MSS
+                    self.cwnd = self.cwnd / 2
                     self.ack = pkt[2] + 1
                     self.rwnd = pkt[8]
                     loss = False
                     dup_num = 0
+                    fast_recover = True
                     break
 
                 self.ack = pkt[2] + 1
@@ -150,8 +153,10 @@ class Server:
 
                 # print recv_count
                 if recv_count == (self.cwnd / MSS) or self.cwnd == 512:
-                    if self.cwnd < THRES:
+                    if self.cwnd < THRES and fast_recover == False:
                         self.cwnd *= 2
+                    elif fast_recover:
+                        self.cwnd += MSS
                     break
                 elif next_seq == len(self.file):
                     print 'The file transmission is finish.'
@@ -213,3 +218,5 @@ if __name__ == "__main__":
     server.threeway()
     server.startTosend()
     server.fourway()
+    while True:
+        pass
