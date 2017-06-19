@@ -101,7 +101,9 @@ class Client:
         ack = 0
         first = True
         receive_count = 0
+        sack = []
         print 'Receive a file from {} : {}'.format(self.dst, self.dport)
+        print 'ACK     1 Left   1 Right   2 Left   2 Right   3 Left   3 Right'
         while ack != 10240:
             packet, server = self.recvfromServ()
             pkt = Packet().unpack(packet, plen = MSS)
@@ -109,7 +111,7 @@ class Client:
             receive_count += 1
 
             if correct == 0 and first:
-                print recv_msg(pkt)
+                print ack
                 ack = pkt[2] + MSS
                 first = False
 
@@ -122,8 +124,18 @@ class Client:
                 self.send(reply.pack(), self.dst, self.dport)
             # check chksum and check expect seq
             elif correct == 0 and ack == pkt[2]:
-                print recv_msg(pkt)
+
+                print_sack(ack, sack)
                 ack = pkt[2] + MSS
+
+                while ack in sack:
+                    ack += MSS
+
+                if len(sack) > 0:
+                    for i in range(len(sack) - 1):
+                        temp = sack[i + 1]
+                        sack[i] = temp
+                    del sack[-1]
 
                 reply = pkt_init()
                 self.seq = pkt[3]
@@ -134,13 +146,31 @@ class Client:
                 self.send(reply.pack(), self.dst, self.dport)
             # gap detect than send dup ack
             elif correct == 0 and ack != pkt[2]:
-                print recv_msg(pkt)
+                # print 'out of order seq'
+                sack.append(pkt[2])
 
                 reply = pkt_init()
                 self.seq = pkt[3]
                 reply.seq = self.seq
                 reply.ack = ack
 
+                if len(sack) == 1:
+                    reply.l1 = sack[0]
+                    reply.r1 = sack[0] + MSS
+                elif len(sack) == 2:
+                    reply.l1 = sack[0]
+                    reply.r1 = sack[0] + MSS
+                    reply.l2 = sack[1]
+                    reply.r2 = sack[1] + MSS
+                elif len(sack) == 3:
+                    reply.l1 = sack[0]
+                    reply.r1 = sack[0] + MSS
+                    reply.l2 = sack[1]
+                    reply.r2 = sack[1] + MSS
+                    reply.l3 = sack[2]
+                    reply.r3 = sack[2] + MSS
+
+                print_sack(ack, sack)
                 self.send(reply.pack(), self.dst, self.dport)
             else:
                 # not in order or loss send duplicate ack
@@ -180,8 +210,6 @@ class Client:
                 pkt.FIN = 1
                 pkt.ack = rcv_pkt[2] + 1
 
-
-
                 print 'Send a packet(FIN) to {0} : {1}'.format(rcv_pkt[9], rcv_pkt[0])
                 self.send(pkt.pack(), self.dst, self.dport)
             elif rcv_pkt[5] and rcv_pkt[3] == seq +1:
@@ -197,11 +225,16 @@ class Client:
 def recv_msg(pkt):
     return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
 
+def print_sack(ack, sack):
+    if len(sack) == 0:
+        print '{0}'.format(ack)
+    elif len(sack) == 1:
+        print '{0}    {1}      {2}'.format(ack, sack[0], sack[0] + MSS)
+    elif len(sack) == 2:
+        print '{0}    {1}      {2}     {3}     {4}'.format(ack, sack[0], sack[0] + MSS, sack[1], sack[1] + MSS)
 
 if __name__ == "__main__":
     client = Client('127.0.0.3',2000)
     client.threeway()
     client.startTorecv()
     client.fourway()
-    while True:
-        pass

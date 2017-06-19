@@ -27,6 +27,15 @@ class Packet:
         #rcv_window
         self.rwnd = BUFFER_SIZE
 
+        #SACK
+        self.sack_permit = 1
+        self.l1 = -1
+        self.r1 = -1
+        self.l2 = -1
+        self.r2 = -1
+        self.l3 = -1
+        self.r3 = -1
+
 
     # pack tcp and ip packet
     def pack(self, data = ''):
@@ -36,6 +45,7 @@ class Packet:
 
         tcp_packet = struct.pack(tcp_format, self.sport, self.dport, self.seq, self.ack, self.chksum, self.ACK, self.SYN, self.FIN, self.rwnd)
         ip_pkt = struct.pack('!4s4s', self.src, self.dst)
+        sack_opt = struct.pack('!H6i', self.sack_permit, self.l1, self.r1, self.l2, self.r2, self.l3, self.r3)
 
         if data != '':
             payload = ''
@@ -43,19 +53,19 @@ class Packet:
                 payload += struct.pack('!c', data[i])
 
             checksum = chksum(tcp_packet + ip_pkt + payload)
-            return struct.pack(tcp_format, self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN, self.FIN, self.rwnd) + ip_pkt + payload
+            return struct.pack(tcp_format, self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN, self.FIN, self.rwnd) + ip_pkt + sack_opt + payload
 
         else:
             checksum = chksum(tcp_packet + ip_pkt)
-            return struct.pack(tcp_format, self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN, self.FIN, self.rwnd) + ip_pkt
+            return struct.pack(tcp_format, self.sport, self.dport, self.seq, self.ack, checksum, self.ACK, self.SYN, self.FIN, self.rwnd) + ip_pkt + sack_opt
 
 
     # unpack TCP packet and IP packet
     def unpack(self, packet, plen = 0):
         if plen == 0:
-            pkt = list(struct.unpack('!2H2Ih3bH4s4s', packet))
+            pkt = list(struct.unpack('!2H2Ih3bH4s4sH6i', packet))
         else:
-            pkt = list(struct.unpack('!2H2Ih3bH4s4s{}c'.format(plen), packet))
+            pkt = list(struct.unpack('!2H2Ih3bH4s4sH6i{}c'.format(plen), packet))
         pkt[9] = socket.inet_ntop(socket.AF_INET, pkt[9])
         pkt[10] = socket.inet_ntop(socket.AF_INET, pkt[10])
         return tuple(pkt)

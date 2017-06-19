@@ -88,14 +88,16 @@ class Server:
         current_ack = 512
         dup_num = 0
         loss = True
-
+        loss_seq = [2048]
+        sack = []
+        send_count = 0
         fast_recover = False
         # send segment until file transmit completly
         while next_seq < len(self.file):
             if self.cwnd == THRES:
                 print '***** Congestion avoidance*****'
             print 'cwnd = {0}, rwnd = {1}, threshold = {2}'.format(self.cwnd, self.rwnd, THRES)
-
+            send_count = 0
             # send segment by cwnd value
             for i in range(self.cwnd / MSS):
                 if next_seq < len(self.file):
@@ -109,11 +111,14 @@ class Server:
 
                     print '          Send a packet at : {} byte'.format(next_seq)
                     # create loss at byte 2048
-                    if next_seq == 2048 and loss:
-                        print '*** Data loss at : 2048 byte'
-                    else:
+                    if next_seq in loss_seq and loss:
+                        print '*** Data loss at : {} byte'.format(next_seq)
+                    elif next_seq not in sack:
+                        send_count += 1
                         self.send(reply_pkt.pack(data = data), self.dst, self.dport)
                     next_seq += MSS
+                    while next_seq in sack:
+                        next_seq += MSS
                     self.ack += 1
 
                 else: break
@@ -125,12 +130,17 @@ class Server:
                 pkt = Packet().unpack(packet)
                 recv_count += 1
 
+                if pkt[12] != -1 and pkt[14] != -1:
+                    sack.extend([pkt[12], pkt[14]])
+                    # print sack
+
                 print recv_msg(pkt)
                 # print '         next_seq = ', next_seq
 
                 # check duplicate ack
                 if current_ack != pkt[3]:
                     current_ack = pkt[3]
+                    dup_num = 0
                 else:
                     dup_num += 1
 
@@ -151,8 +161,8 @@ class Server:
                 self.ack = pkt[2] + 1
                 self.rwnd = pkt[8]
 
-                # print recv_count
-                if recv_count == (self.cwnd / MSS) or self.cwnd == 512:
+                # print recv_cou
+                if recv_count == send_count or self.cwnd == 512:
                     if self.cwnd < THRES and fast_recover == False:
                         self.cwnd *= 2
                     elif fast_recover:
@@ -211,12 +221,10 @@ class Server:
 
 
 def recv_msg(pkt):
-    return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
+    return '          Receive a packet (seq_num = {0}, ack_num = {1}, l1 = {2}, l2 = {3})'.format(pkt[2], pkt[3], pkt[12], pkt[14])
 
 if __name__ == "__main__":
     server = Server('127.0.0.1', 12000)
     server.threeway()
     server.startTosend()
     server.fourway()
-    while True:
-        pass
