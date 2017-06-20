@@ -101,6 +101,8 @@ class Client:
         ack = 0
         first = True
         receive_count = 0
+        rwnd = 10240
+        retran = 0
         print 'Receive a file from {} : {}'.format(self.dst, self.dport)
         while ack != 10240:
             packet, server = self.recvfromServ()
@@ -110,6 +112,7 @@ class Client:
 
             if correct == 0 and first:
                 print recv_msg(pkt)
+                rwnd -= MSS
                 ack = pkt[2] + MSS
                 first = False
 
@@ -117,29 +120,37 @@ class Client:
                 self.seq = pkt[3]
                 reply.seq = self.seq
                 reply.ack = ack
-                reply.rwnd -= MSS
+                reply.rwnd = rwnd
 
                 self.send(reply.pack(), self.dst, self.dport)
             # check chksum and check expect seq
             elif correct == 0 and ack == pkt[2]:
-                print recv_msg(pkt)
+                # enconter fast recovery
+                if retran == 1:
+                    rwnd = 10240
+                    retran = 2
+
                 ack = pkt[2] + MSS
+                rwnd -= MSS
+                print recv_msg(pkt) + ' ' + str(pkt[8])
+
 
                 reply = pkt_init()
                 self.seq = pkt[3]
                 reply.seq = self.seq
                 reply.ack = ack
-                reply.rwnd = pkt[8] - MSS
+                reply.rwnd = rwnd
 
                 self.send(reply.pack(), self.dst, self.dport)
-            # gap detect than send dup ack
+            # gap detect then send dup ack
             elif correct == 0 and ack != pkt[2]:
                 print recv_msg(pkt)
 
                 reply = pkt_init()
-                self.seq = pkt[3]
                 reply.seq = self.seq
                 reply.ack = ack
+                reply.rwnd = rwnd
+                retran = 1
 
                 self.send(reply.pack(), self.dst, self.dport)
             else:
@@ -203,5 +214,3 @@ if __name__ == "__main__":
     client.threeway()
     client.startTorecv()
     client.fourway()
-    while True:
-        pass
