@@ -88,7 +88,7 @@ class Server:
         current_ack = 512
         dup_num = 0
         loss = True
-        loss_seq = [2048]
+        loss_seq = [5120, 6144, 7168]
         sack = []
         send_count = 0
         fast_recover = False
@@ -140,7 +140,6 @@ class Server:
                 # check duplicate ack
                 if current_ack != pkt[3]:
                     current_ack = pkt[3]
-                    dup_num = 0
                 else:
                     dup_num += 1
 
@@ -221,10 +220,11 @@ class Server:
 
 
 def recv_msg(pkt):
-    return '          Receive a packet (seq_num = {0}, ack_num = {1}, l1 = {2}, l2 = {3})'.format(pkt[2], pkt[3], pkt[12], pkt[14])
+    return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
 
 if __name__ == "__main__":
-    server = Server('127.0.0.1', 12000)
-    server.threeway()
-    server.startTosend()
-    server.fourway()
+    while True:
+        server = Server('127.0.0.1', 12000)
+        server.threeway()
+        server.startTosend()
+        server.fourway()

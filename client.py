@@ -36,8 +36,8 @@ class Client:
         # input server IP:port
         print 'Please Input Server [IP] [Port] to connect'
 
-        # _input = raw_input('>>> ').split(' ')
-        _input = '127.0.0.1 12000'.split(' ')
+        _input = raw_input('>>> ').split(' ')
+        # _input = '127.0.0.1 12000'.split(' ')
         self.dst = _input[0]
         self.dport = int(_input[1])
     def recvfromServ(self):
@@ -234,7 +234,8 @@ def print_sack(ack, sack):
         print '{0}    {1}      {2}     {3}     {4}'.format(ack, sack[0], sack[0] + MSS, sack[1], sack[1] + MSS)
 
 if __name__ == "__main__":
-    client = Client('127.0.0.3',2000)
-    client.threeway()
-    client.startTorecv()
-    client.fourway()
+    while True:
+        client = Client('127.0.0.3',2000)
+        client.threeway()
+        client.startTorecv()
+        client.fourway()
