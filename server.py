@@ -215,7 +215,8 @@ def recv_msg(pkt):
     return '          Receive a packet (seq_num = {0}, ack_num = {1})'.format(pkt[2], pkt[3])
 
 if __name__ == "__main__":
-    server = Server('127.0.0.1', 12000)
-    server.threeway()
-    server.startTosend()
-    server.fourway()
+    while True:
+        server = Server('127.0.0.1', 12000)
+        server.threeway()
+        server.startTosend()
+        server.fourway()
